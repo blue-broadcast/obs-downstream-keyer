@@ -28,6 +28,29 @@ MODULE_EXTERN struct obs_source_info output_source_info;
 std::map<std::string, DownstreamKeyerDock *> _dsks;
 obs_websocket_vendor vendor = nullptr;
 
+// obs-websocket calls vendor requests on its own thread, but the handlers below
+// read and change Qt widgets. Run them on the UI thread and wait for the result
+// (obs_queue_task runs the task directly when already on the UI thread).
+struct UiRequest {
+	obs_websocket_request_callback_function callback;
+	obs_data_t *request_data;
+	obs_data_t *response_data;
+	void *param;
+};
+
+static void run_ui_request(void *data)
+{
+	const auto request = static_cast<UiRequest *>(data);
+	request->callback(request->request_data, request->response_data, request->param);
+}
+
+template<obs_websocket_request_callback_function F>
+static void on_ui_thread(obs_data_t *request_data, obs_data_t *response_data, void *param)
+{
+	UiRequest request{F, request_data, response_data, param};
+	obs_queue_task(OBS_TASK_UI, run_ui_request, &request, true);
+}
+
 extern "C" {
 size_t get_view_count();
 const char *get_view_name(size_t idx);
@@ -272,19 +295,19 @@ void obs_module_post_load(void)
 	if (!vendor) {
 		return;
 	}
-	obs_websocket_vendor_register_request(vendor, "get_downstream_keyers", DownstreamKeyerDock::get_downstream_keyers, nullptr);
-	obs_websocket_vendor_register_request(vendor, "get_downstream_keyer", DownstreamKeyerDock::get_downstream_keyer, nullptr);
-	obs_websocket_vendor_register_request(vendor, "add_downstream_keyer", DownstreamKeyerDock::add_downstream_keyer, nullptr);
-	obs_websocket_vendor_register_request(vendor, "remove_downstream_keyer", DownstreamKeyerDock::remove_downstream_keyer,
+	obs_websocket_vendor_register_request(vendor, "get_downstream_keyers", on_ui_thread<DownstreamKeyerDock::get_downstream_keyers>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "get_downstream_keyer", on_ui_thread<DownstreamKeyerDock::get_downstream_keyer>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "add_downstream_keyer", on_ui_thread<DownstreamKeyerDock::add_downstream_keyer>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "remove_downstream_keyer", on_ui_thread<DownstreamKeyerDock::remove_downstream_keyer>,
 					      nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_get_scene", DownstreamKeyerDock::get_scene, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_select_scene", DownstreamKeyerDock::change_scene, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_add_scene", DownstreamKeyerDock::add_scene, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_remove_scene", DownstreamKeyerDock::remove_scene, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_set_tie", DownstreamKeyerDock::set_tie, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_set_transition", DownstreamKeyerDock::set_transition, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_add_exclude_scene", DownstreamKeyerDock::add_exclude_scene, nullptr);
-	obs_websocket_vendor_register_request(vendor, "dsk_remove_exclude_scene", DownstreamKeyerDock::remove_exclude_scene,
+	obs_websocket_vendor_register_request(vendor, "dsk_get_scene", on_ui_thread<DownstreamKeyerDock::get_scene>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_select_scene", on_ui_thread<DownstreamKeyerDock::change_scene>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_add_scene", on_ui_thread<DownstreamKeyerDock::add_scene>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_remove_scene", on_ui_thread<DownstreamKeyerDock::remove_scene>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_set_tie", on_ui_thread<DownstreamKeyerDock::set_tie>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_set_transition", on_ui_thread<DownstreamKeyerDock::set_transition>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_add_exclude_scene", on_ui_thread<DownstreamKeyerDock::add_exclude_scene>, nullptr);
+	obs_websocket_vendor_register_request(vendor, "dsk_remove_exclude_scene", on_ui_thread<DownstreamKeyerDock::remove_exclude_scene>,
 					      nullptr);
 }
 
