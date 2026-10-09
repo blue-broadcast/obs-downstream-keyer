@@ -295,6 +295,7 @@ void obs_module_post_load(void)
 	if (!vendor) {
 		return;
 	}
+	obs_websocket_vendor_register_request(vendor, "get_version", on_ui_thread<DownstreamKeyerDock::get_version>, nullptr);
 	obs_websocket_vendor_register_request(vendor, "get_downstream_keyers", on_ui_thread<DownstreamKeyerDock::get_downstream_keyers>, nullptr);
 	obs_websocket_vendor_register_request(vendor, "get_downstream_keyer", on_ui_thread<DownstreamKeyerDock::get_downstream_keyer>, nullptr);
 	obs_websocket_vendor_register_request(vendor, "add_downstream_keyer", on_ui_thread<DownstreamKeyerDock::add_downstream_keyer>, nullptr);
@@ -320,6 +321,7 @@ void obs_module_unload()
 	if (!vendor || !obs_get_module("obs-websocket")) {
 		return;
 	}
+	obs_websocket_vendor_unregister_request(vendor, "get_version");
 	obs_websocket_vendor_unregister_request(vendor, "get_downstream_keyers");
 	obs_websocket_vendor_unregister_request(vendor, "get_downstream_keyer");
 	obs_websocket_vendor_unregister_request(vendor, "add_downstream_keyer");
@@ -505,6 +507,7 @@ void DownstreamKeyerDock::Load(obs_data_t *data)
 			auto keyer = new DownstreamKeyer((int)(outputChannel + i), QT_UTF8(obs_data_get_string(keyerData, "name")),
 							 view, c, get_transitions, get_transitions_data);
 			keyer->Load(keyerData);
+			ConnectKeyer(keyer);
 			tabs->addTab(keyer, keyer->objectName());
 			obs_data_release(keyerData);
 		}
@@ -544,7 +547,9 @@ void DownstreamKeyerDock::AddDefaultKeyer()
 	auto keyer = new DownstreamKeyer(outputChannel, QT_UTF8(obs_module_text("DefaultName")), view, c, get_transitions,
 					 get_transitions_data);
 	obs_canvas_release(c);
+	ConnectKeyer(keyer);
 	tabs->addTab(keyer, keyer->objectName());
+	EmitListChanged();
 }
 void DownstreamKeyerDock::SceneChanged()
 {
@@ -749,7 +754,9 @@ void DownstreamKeyerDock::Add(QString name)
 	obs_canvas_t *c = obs_weak_canvas_get_canvas(canvas);
 	auto keyer = new DownstreamKeyer(outputChannel + tabs->count(), name, view, c, get_transitions, get_transitions_data);
 	obs_canvas_release(c);
+	ConnectKeyer(keyer);
 	tabs->addTab(keyer, keyer->objectName());
+	EmitListChanged();
 }
 
 void DownstreamKeyerDock::Rename()
@@ -760,7 +767,11 @@ void DownstreamKeyerDock::Rename()
 	}
 	std::string name = QT_TO_UTF8(tabs->tabText(i));
 	if (NameDialog::AskForName(this, name)) {
-		tabs->setTabText(i, QT_UTF8(name.c_str()));
+		const auto newName = QT_UTF8(name.c_str());
+		tabs->setTabText(i, newName);
+		// Requests find a keyer by its object name: keep it in sync with the tab
+		tabs->widget(i)->setObjectName(newName);
+		EmitListChanged();
 	}
 }
 
@@ -775,10 +786,35 @@ void DownstreamKeyerDock::Remove(int index)
 	auto w = tabs->widget(index);
 	tabs->removeTab(index);
 	delete w;
+	EmitListChanged();
 	if (tabs->count() == 0) {
 		AddDefaultKeyer();
 	}
 }
+void DownstreamKeyerDock::ConnectKeyer(DownstreamKeyer *keyer)
+{
+	connect(keyer, &DownstreamKeyer::ListChanged, this, &DownstreamKeyerDock::EmitListChanged);
+}
+
+void DownstreamKeyerDock::EmitListChanged()
+{
+	if (!vendor || closing)
+		return;
+	const auto data = obs_data_create();
+	obs_data_set_string(data, "view_name", viewName.c_str());
+	obs_websocket_vendor_emit_event(vendor, "dsk_list_changed", data);
+	obs_data_release(data);
+}
+
+void DownstreamKeyerDock::get_version(obs_data_t *request_data, obs_data_t *response_data, void *param)
+{
+	UNUSED_PARAMETER(request_data);
+	UNUSED_PARAMETER(param);
+	obs_data_set_string(response_data, "version", PROJECT_VERSION);
+	obs_data_set_string(response_data, "fork", "bluebroadcast");
+	obs_data_set_bool(response_data, "success", true);
+}
+
 QString DownstreamKeyerDock::GetScene(QString dskName)
 {
 	const int count = tabs->count();

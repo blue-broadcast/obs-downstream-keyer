@@ -39,6 +39,12 @@ DownstreamKeyer::DownstreamKeyer(int channel, QString name, obs_view_t *v, obs_c
 	layout->setContentsMargins(0, 0, 0, 0);
 
 	scenesList = new QListWidget(this);
+	// Any change to the scene list (add, remove, move, rename) is reported to websocket clients
+	auto model = scenesList->model();
+	connect(model, &QAbstractItemModel::rowsInserted, this, &DownstreamKeyer::ListChanged);
+	connect(model, &QAbstractItemModel::rowsRemoved, this, &DownstreamKeyer::ListChanged);
+	connect(model, &QAbstractItemModel::rowsMoved, this, &DownstreamKeyer::ListChanged);
+	connect(model, &QAbstractItemModel::dataChanged, this, &DownstreamKeyer::ListChanged);
 	scenesList->setObjectName(QStringLiteral("scenes"));
 	QSizePolicy sizePolicy6(QSizePolicy::Preferred, QSizePolicy::Expanding);
 	sizePolicy6.setHorizontalStretch(0);

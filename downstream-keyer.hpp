@@ -41,7 +41,7 @@ private:
 	uint32_t showTransitionDuration;
 	uint32_t hideTransitionDuration;
 	uint32_t overrideTransitionDuration;
-	uint32_t hideAfter;
+	uint32_t hideAfter = 0;
 	LockedCheckBox *tie;
 	obs_hotkey_id null_hotkey_id;
 	obs_hotkey_pair_id tie_hotkey_id;
@@ -73,6 +73,7 @@ private slots:
 	void apply_selected_source();
 	void on_scenesList_itemSelectionChanged();
 signals:
+	void ListChanged();
 
 public:
 	DownstreamKeyer(int channel, QString name, obs_view_t *view = nullptr, obs_canvas_t *canvas = nullptr,

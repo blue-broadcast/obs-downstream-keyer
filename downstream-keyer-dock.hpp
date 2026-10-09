@@ -37,11 +37,13 @@ private:
 	void ConfigClicked();
 	void AddTransitionMenu(QMenu *tm, enum transitionType transition_type);
 	void AddExcludeSceneMenu(QMenu *tm);
+	void ConnectKeyer(DownstreamKeyer *keyer);
 private slots:
 	void SceneChanged();
 	void Add(QString name = "");
 	void Rename();
 	void Remove(int index = -1);
+	void EmitListChanged();
 
 public:
 	DownstreamKeyerDock(QWidget *parent = nullptr, int outputChannel = 7, obs_view_t *view = nullptr,
@@ -56,6 +58,7 @@ public:
 	static void frontend_event(enum obs_frontend_event event, void *data);
 	static void frontend_save_load(obs_data_t *save_data, bool saving, void *data);
 
+	static void get_version(obs_data_t *request_data, obs_data_t *response_data, void *param);
 	static void get_downstream_keyers(obs_data_t *request_data, obs_data_t *response_data, void *param);
 	static void get_downstream_keyer(obs_data_t *request_data, obs_data_t *response_data, void *param);
 	static void add_downstream_keyer(obs_data_t *request_data, obs_data_t *response_data, void *param);
