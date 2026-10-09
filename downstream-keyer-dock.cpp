@@ -516,6 +516,8 @@ void DownstreamKeyerDock::Load(obs_data_t *data)
 	} else {
 		AddDefaultKeyer();
 	}
+	// Scenes loaded above were added before the keyers were connected: report the final list once
+	EmitListChanged();
 }
 
 void DownstreamKeyerDock::ClearKeyers()
