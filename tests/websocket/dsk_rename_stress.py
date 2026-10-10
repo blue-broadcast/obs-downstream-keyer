@@ -28,7 +28,7 @@ async def main():
             await asyncio.wait_for(asyncio.gather(*futures), 10)
             await obs.request("RemoveScene", {"sceneName": name})
         version = await obs.request("GetVersion")
-        print(f"OK     40 renames and a removal per round, 20 rounds; OBS still answers (OBS {version['responseData']['obsVersion']})")
+        print(f"OK     20 rounds of 20 renames and a removal; OBS still answers (OBS {version['responseData']['obsVersion']})")
     except Exception as error:
         ok = False
         print(f"FAILED {type(error).__name__}: {error}")
