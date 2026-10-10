@@ -704,28 +704,39 @@ void DownstreamKeyer::source_rename(void *data, calldata_t *calldata)
 	const auto downstreamKeyer = static_cast<DownstreamKeyer *>(data);
 	const auto newName = QT_UTF8(calldata_string(calldata, "new_name"));
 	const auto prevName = QT_UTF8(calldata_string(calldata, "prev_name"));
-	const auto count = downstreamKeyer->scenesList->count();
-	for (int i = 0; i < count; i++) {
-		const auto item = downstreamKeyer->scenesList->item(i);
-		if (item->text() == prevName)
-			item->setText(newName);
-	}
+	// The signal fires on the thread that renamed the source (obs-websocket for a remote rename):
+	// change the Qt list on the UI thread. The call is dropped if the keyer is deleted first.
+	QMetaObject::invokeMethod(
+		downstreamKeyer,
+		[downstreamKeyer, newName, prevName] {
+			const auto count = downstreamKeyer->scenesList->count();
+			for (int i = 0; i < count; i++) {
+				const auto item = downstreamKeyer->scenesList->item(i);
+				if (item->text() == prevName)
+					item->setText(newName);
+			}
+		},
+		Qt::QueuedConnection);
 }
 
 void DownstreamKeyer::source_remove(void *data, calldata_t *calldata)
 {
 	const auto downstreamKeyer = static_cast<DownstreamKeyer *>(data);
 	const auto name = QT_UTF8(obs_source_get_name(static_cast<obs_source_t *>(calldata_ptr(calldata, "source"))));
-
-	const auto count = downstreamKeyer->scenesList->count();
-	for (int i = count - 1; i >= 0; i--) {
-		const auto item = downstreamKeyer->scenesList->item(i);
-		if (item->text() == name) {
-			downstreamKeyer->scenesList->removeItemWidget(item);
-			obs_hotkey_pair_unregister(item->data(Qt::UserRole).toUInt());
-			delete item;
-		}
-	}
+	QMetaObject::invokeMethod(
+		downstreamKeyer,
+		[downstreamKeyer, name] {
+			const auto count = downstreamKeyer->scenesList->count();
+			for (int i = count - 1; i >= 0; i--) {
+				const auto item = downstreamKeyer->scenesList->item(i);
+				if (item->text() == name) {
+					downstreamKeyer->scenesList->removeItemWidget(item);
+					obs_hotkey_pair_unregister(item->data(Qt::UserRole).toUInt());
+					delete item;
+				}
+			}
+		},
+		Qt::QueuedConnection);
 }
 
 bool DownstreamKeyer::enable_DSK_hotkey(void *data, obs_hotkey_pair_id id, obs_hotkey_t *hotkey, bool pressed)
