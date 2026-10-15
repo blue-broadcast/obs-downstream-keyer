@@ -936,8 +936,10 @@ bool DownstreamKeyer::SwitchToScene(QString scene_name)
 		if (!item)
 			continue;
 		if (item->text() == scene_name) {
-			if (!item->isSelected()) {
-				item->setSelected(true);
+			// Current row and selection, like a click in the dock: the state read
+			// back (Save, get_downstream_keyers) then matches what is on air
+			if (scenesList->currentItem() != item || !item->isSelected()) {
+				scenesList->setCurrentItem(item);
 			}
 			return true;
 		}
