@@ -364,6 +364,13 @@ void DownstreamKeyerDock::frontend_event(enum obs_frontend_event event, void *da
 		if (!downstreamKeyerDock->closing) {
 			downstreamKeyerDock->AddDefaultKeyer();
 		}
+	} else if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING && !downstreamKeyerDock->loaded) {
+		// First run: OBS creates a clean scene collection without loading it, so the save
+		// callback never ran. Build the default keyer as for a collection without keyers.
+		obs_data_t *empty = obs_data_create();
+		downstreamKeyerDock->Load(empty);
+		obs_data_release(empty);
+		downstreamKeyerDock->loaded = true;
 	} else if (event == OBS_FRONTEND_EVENT_EXIT) {
 		downstreamKeyerDock->ClearKeyers();
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_CHANGED) {
