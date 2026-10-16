@@ -426,7 +426,10 @@ void DownstreamKeyer::Save(obs_data_t *data)
 		obs_data_release(sceneData);
 	}
 	obs_data_set_array(data, "scenes", sceneArray);
-	obs_data_set_string(data, "scene", scenesList->currentItem() ? QT_TO_UTF8(scenesList->currentItem()->text()) : "");
+	// The selected scene is the one on air; the current row can differ (Qt makes the
+	// first row current when the list gets focus, without selecting it)
+	const auto selected = scenesList->selectedItems();
+	obs_data_set_string(data, "scene", selected.isEmpty() ? "" : QT_TO_UTF8(selected.first()->text()));
 	obs_data_array_release(sceneArray);
 
 	obs_data_array_t *nh = obs_hotkey_save(null_hotkey_id);
